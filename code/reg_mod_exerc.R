@@ -1,7 +1,11 @@
 #  Regression Models for data science, Brian Caffo
 # Exerises
 
+
+
+################################################################################
 # Introduction
+################################################################################
 
 # 1: minimization of squared deviations
 x=c(0.725,0.429,-0.372 ,0.863)
@@ -70,7 +74,7 @@ lm(yc~x)
 tmp(yc, x)
 lm(yc~x-1) # no intercept -> different slope
 tmp(yc, x, T)
-##############################
+################################################################################
 
 
 
@@ -79,7 +83,10 @@ tmp(yc, x, T)
 
 
 
+################################################################################
 # Notation
+################################################################################
+
 # Galton data - visualisation (sorry to say a rather ugly one)
 library(UsingR);library(dplyr); library(ggplot2)
 freqData <- as.data.frame(table(galton$child, galton$parent))
@@ -150,7 +157,7 @@ ggplot(data.frame(nparent,nchild), aes(x=nparent,y=nchild)) +
 ggplot(data.frame(nparent,nchild), aes(y=nparent,x=nchild)) +
     geom_jitter(size=5, alpha=.3, width=2, height=2) +
     geom_smooth(method=lm)
-##################################################
+################################################################################
 
 
 
@@ -161,7 +168,9 @@ ggplot(data.frame(nparent,nchild), aes(y=nparent,x=nchild)) +
 
 
 
+################################################################################
 # Ordinary Least Squares
+################################################################################
 
 # Fitting Galton’s data using linear regression.
 y <- galton$child
@@ -268,7 +277,10 @@ lm(csh~cfh-1, df)$coef
 
 
 
+################################################################################
 # Regression to the mean
+################################################################################
+
 # How to understand it:
 # - after normalizing the scatter plot is symmetric around the identity line (under what conditions?)
 # - draw lines perpendicular to the identity line, these lines devide the space into segments
@@ -362,7 +374,10 @@ xi * ro # 1.5
 
 
 
+################################################################################
 # Statistical linear regression models
+################################################################################
+
 library(UsingR)
 data(diamond)
 library(ggplot2)
@@ -388,41 +403,43 @@ newx <- c(0.16, 0.27, 0.34)
 coef(fit)[1] + coef(fit)[2]*newx
 predict(fit, data.frame(carat = newx))
 
-# 1
-library(UsingR)
+# 1 : father.son
+# Give a p-value for the slope coefficient and perform the relevant hypothesis test
+library(UsingR); data("father.son")
 str(father.son)
-fit <- lm(sheight~fheight, data=father.son)
-fit
-# Give a p-value for the slope coefficient
-# and perform the relevant hypothesis test.
-x <- father.son$fheight
-y <- father.son$sheight
-n <- nrow(father.son)
-p <- 2
-RSS <- sum((y - fit$fitted.values)^2)
-sig.sq <- RSS / (n - p)
-sig.sq.beta1 <- sig.sq / sum((x - mean(x))^2)
-beta1 <- cor(x,y)*sd(y)/sd(x)
-t.stat <- (beta1 - 0)/sqrt(sig.sq.beta1) # ok
+fit <- lm(sheight~fheight, data=father.son); fit
+
+# using lm output
+tmp <- summary(fit)$coef
+# p-value for the slope
+tmp[2,4] # p-value
+# testing H: slope<>0
+TS <- tmp[2,1]/tmp[2,2]; TS # test statistic
+n <- nrow(father.son); df <- n-2; a <- .05
+RR <- c(-1,1)*qt(1-a/2,df); RR # rejection region
+abs(TS) > RR[2] # H0 rejected
+# comparison: 95% confidence interval for the slope
+tmp[2,1] + c(-1,1)*qt(1-a/2,df)*tmp[2,2] # does not contain 0
+
+# manually
+x <- father.son$fheight; y <- father.son$sheight; n <- nrow(father.son); p <- 2
+beta1 <- cor(x,y)*sd(y)/sd(x); beta0 <- mean(y) - beta1*mean(x)
+yhat <- beta0 + beta1*x
+rss <- sum((y - yhat)^2); sig.sq <- rss / (n - p); ssx <- sum((x - mean(x))^2)
+sig.sq.beta1 <- sig.sq / ssx
+t.stat.beta1 <- (beta1 - 0)/sqrt(sig.sq.beta1) # ok
 p.val.beta1 <- 2*pt(t.stat, df=n-p, lower.tail = F) # two sided
-# comparison with values found by R
-summary(fit)$coef
-names(summary(fit))
+
+# comparison of the values obtained from lm and found manually
 # sigma
 c(summary(fit)$sigma, sqrt(sig.sq))
-# beta1
-c(summary(fit)$coef[2,1], beta1)
-# t.stat and p.value for beta1
-matrix(c(summary(fit)$coef[2,3:4],t.stat,p.val.beta1),
-       nrow=2, byrow=T)
-# hypothesis test:
-# H0: beta1=0; Ha: beta1<>0
-# alpha = 0.05
-# confidence interval:
-beta1 + c(-1,1)*qt(0.975, df=n-p)*sqrt(sig.sq.beta1)
-# 0 is not inside this interval, H0 rejected.
+# coefficient table for the slope
+matrix(c(tmp[2,1:4],
+         beta1, sqrt(sig.sq.beta1), t.stat.beta1, p.val.beta1),
+       nrow=2, byrow=T,
+       dimnames=list(c('lm','manual'), colnames(tmp)))
 
-# 1 (old solution)
+# (old solution - delete it)
 library(UsingR)
 data(father.son)
 ?father.son
@@ -456,7 +473,10 @@ pBeta1 <- 2*pt(abs(tBeta1), df=n-2, lower.tail = F)
 # 95% confidence t-intervals
 beta0 + c(-1,1)*qt(.975, df=n-2) * seBeta0
 beta1 + c(-1,1)*qt(.975, df=n-2) * seBeta1
-# 2
+
+# 2 :
+
+#
 
 
 
@@ -468,7 +488,10 @@ beta1 + c(-1,1)*qt(.975, df=n-2) * seBeta1
 
 
 
+################################################################################
 # Residuals
+################################################################################
+
 # Aims:
 # - investigating poor model fit
 # - creating covariate adjusted variables
@@ -628,7 +651,10 @@ ggplot(data.frame(x=father.son$sheight, y=fit$residuals), aes(x=x, y=y)) +
 
 
 
+################################################################################
 # Regression inference
+################################################################################
+
 library(UsingR)
 y <- diamond$price; x <- diamond$carat; n <- length(y)
 # estimates
@@ -770,7 +796,10 @@ pval
 
 
 
+################################################################################
 # Mulivariable regression analysis
+################################################################################
+
 # simulation
 n = 100; x = rnorm(n); x2 = rnorm(n); x3 = rnorm(n)
 # Generate the data
@@ -885,7 +914,10 @@ plot(fit)
 
 
 
+################################################################################
 # Multivariable examples and tricks
+################################################################################
+
 library(datasets)
 data(swiss)
 ?swiss
@@ -1049,7 +1081,10 @@ par(mfrow=c(1,1))
 
 
 
+################################################################################
 # Adjustment
+################################################################################
+
 # the idea of putting regressors into a linear model
 # to investigate the role of a third variable
 # on the relationship between another two
@@ -1204,7 +1239,10 @@ summary(lm(DriversKilled~kkms_centered+PetrolPrice_normalized, data=df3))
 
 
 
+################################################################################
 # Residuals, variation, diagnostics
+################################################################################
+
 data(swiss)
 par(mfrow = c(2, 2))
 fit <- lm(Fertility ~ . , data = swiss); plot(fit)
@@ -1495,7 +1533,9 @@ cor(df2[,keep])
 
 
 
+################################################################################
 # Multiple variables and model selection
+################################################################################
 
 # our focus will be on modeling. That is, our primary concern is winding up with an interpretable model, with interpretable coefficients. This is a very different process than if we only care about prediction or machine learning. Prediction has a different set of criteria, needs for interpretability and standards for generalizability. In modeling, our interest lies in parsimonious, interpretable representations of the data that enhance our understanding of the phenomena under study.
 # known knowns -> variable selection
@@ -1723,7 +1763,9 @@ rbind(summary(fit1)$coef[2,],
 
 
 
+################################################################################
 # Generalized Linear Models
+################################################################################
 
 
 # A GLM involves three components
@@ -1749,7 +1791,10 @@ rbind(summary(fit1)$coef[2,],
 
 
 
+################################################################################
 # Binary GLMs
+################################################################################
+
 getwd()
 if (!file.exists('Coursera')) {
     dir.create('Coursera')
@@ -1872,7 +1917,9 @@ exp(confint(logRegRavens))
 
 
 
+################################################################################
 # Count data
+################################################################################
 
 # Poisson density --> Normal
 par(mfrow = c(1, 3))
@@ -1987,7 +2034,9 @@ fit <- glm(DriversKilled~kms2+price2+law, family=poisson, data=df2)
 
 
 
+################################################################################
 # Bonus material
+################################################################################
 
 # regression splines
 ## simulate the data

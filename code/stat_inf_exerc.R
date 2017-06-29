@@ -6,13 +6,16 @@ x3
 
 
 
-#  Statistical inference for data science, Brian Caffo
+# Statistical inference for data science, Brian Caffo
 # Exerises
 
 
 
 
+################################################################################
 # Ch.3 Cond.Prob.
+################################################################################
+
 # 1
 1/52 # for any specific card in a deck
 1/13 # for any specific card knowing the suit
@@ -38,7 +41,10 @@ NPV
 
 
 
+################################################################################
 # Ch.4 Exp.Val.
+################################################################################
+
 # 1
 3.5
 mean(c(1, 2, 3, 4, 5, 6))
@@ -71,7 +77,10 @@ abline(v=3.5, lwd=2, col="red") # true mean
 
 
 
+################################################################################
 # Ch.5 Variation
+################################################################################
+
 # 1
 # sample variance is an estimate of populatino variance
 # 2
@@ -119,7 +128,9 @@ mean((1:6 - 3.5)^2) / 10 # sample mean variance
 
 
 
+################################################################################
 # Ch.6 Some common distributions
+################################################################################
 
 # 1
 n <- 10; k <- c(9,10); p <- .5
@@ -206,8 +217,9 @@ ppois(20, 2*16.5) # lower tail
 
 
 
-
+################################################################################
 # Ch.7 Asymptopia
+################################################################################
 
 # Simulation of confidence intervals
 # Wald interval coverage
@@ -401,9 +413,9 @@ qplot(x, y, data=dd, geom='line') +
 
 
 ################################################################################
-
-
 # Ch.8 t-Confidence intervals
+################################################################################
+
 # Note: t-statistic has N(0,1) distribution if we substitute the true sigma.
 # It has t distribution if we use s as an estimate for sigma.
 require(manipulate)
@@ -560,8 +572,66 @@ m + c(-1,1)*qt(0.975, nx+ny-2) * s * sqrt(1/nx + 1/ny) # the same
 
 
 
+
+
 ################################################################################
 # Ch.9 Hypothesis testing
+################################################################################
+
+# the null hypothesis is assumed true and statistical evidence is required to reject it in favor of a research or alternative hypothesis
+
+# t test for paired observations
+# t.test
+library(UsingR); data(father.son)
+t.test(father.son$sheight - father.son$fheight) # test and 95% CI
+# manually
+y <- father.son$sheight; x <- father.son$fheight; n <- nrow(father.son)
+df <- n-1; diff <- y - x; mn <- mean(diff); s <- sd(diff); a <- .05
+mn + c(-1,1)*qt(1-a/2, df)*s/sqrt(n) # 95% CI
+
+# t test for independent groups
+
+# t.test
+# obtaining data
+library(datasets); data(ChickWeight)
+
+# define weight gain or loss - method in the book
+library(reshape2); library(dplyr)
+wideCW <- dcast(ChickWeight, Diet + Chick ~ Time, value.var = "weight")
+names(wideCW)[-(1 : 2)] <- paste("time", names(wideCW)[-(1 : 2)], sep = "")
+wideCW <- mutate(wideCW,
+                 gain = time21 - time0
+)
+# Unequal variance T test comparing diets 1 and 4
+wideCW14 <- subset(wideCW, Diet %in% c(1, 4))
+t.test(gain ~ Diet, paired = FALSE, var.equal = FALSE, data = wideCW14)
+
+# define weight gain or loss - my method
+library(dplyr)
+ChickWeight %>%
+    filter(Diet %in% c(1,4), Time %in% c(0,21)) %>%
+    group_by(Diet, Chick) %>%
+    mutate(gain=weight-lag(weight)) %>%
+    group_by(Diet) %>%
+    na.omit() -> tmp
+# Unequal variance T test comparing diets 1 and 4
+t.test(gain ~ Diet, data=tmp)
+
+# manually
+x <- tmp$gain[tmp$Diet==4]; y <- tmp$gain[tmp$Diet==1]
+nx <- length(x); ny <- length(y); sx <- sd(x); sy <- sd(y) # better: sxx <- var(x)
+df <- (sx^2/nx + sy^2/ny)^2 / ((sx^2/nx)^2/(nx-1) + (sy^2/ny)^2/(ny-1))
+mx <- mean(x); my <- mean(y); a <- .05
+my - mx + c(-1,1)*qt(1-a/2,df)*sqrt(sx^2/nx + sy^2/ny) # 95% CI
+
+# Exact binomial test
+
+
+
+
+
+
+
 # 1
 # Null is assumed to be true.
 # 2
@@ -603,7 +673,10 @@ mn + c(-1,1)*qt(.975, df=n-1)*sd/sqrt(n)
 
 
 
+################################################################################
 # Ch.10 P-values
+################################################################################
+
 # 1
 # p-vals are calc. assuming H0 is true
 # 2
@@ -684,7 +757,10 @@ pnorm(tmp, .5, .5/sqrt(size), lower.tail = F) # assuming null (mean=.5, sd=.5) -
 
 
 
+################################################################################
 # Ch.11 Power
+################################################################################
+
 # 1
 # Power is a probability calculation assuming which is true:
     # (1) alternative
@@ -715,7 +791,10 @@ round(0.8037649, 3)
 
 
 
+################################################################################
 # Ch.12 The bootstrap and resampling
+################################################################################
+
 # 1
 # The bootstrap uses what to estimate the sampling distribution of a statistic?
     # The empirical distribution that puts probability 1/n for each observed data point
