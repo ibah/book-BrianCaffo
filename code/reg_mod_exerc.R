@@ -128,15 +128,21 @@ mean(cparent)
 sd(cparent)
 
 # 3: rescale
+# concise - not correct
+apply(sapply(galton, scale, center=F), 2, sd) # this doesn't work as expected
+# -> check the scale function
+df <- data.frame(a=1:3, b=4:6)
+sapply(df, scale, scale=F)
+sapply(df, scale, center=F) # devided by root mean square?
+df$a/sd(df$a) # devided by sd
+df$a/sqrt(mean(df$a^2)) # devided by RMS
 # concise
-
-
-
-# rescale
+sapply(lapply(galton, function(x) x/sd(x)), sd)
+# long
 sparent <- galton$parent/sd(galton$parent)
 sd(sparent)
-# 4
-# normalize and get correlation
+
+# 4: normalize and get correlation
 nparent <- with(galton, (parent - mean(parent))/sd(parent))
 nchild  <- with(galton, (child - mean(child))/sd(child))
 mean(c(nparent, nchild))
@@ -209,7 +215,7 @@ beta0 <- mean(y) - beta1 * mean(x)
 ans <- c(beta0, beta1)
 names(ans) <- c('beta0','beta1')
 ans
-# R
+# R functions
 fit <- lm(sheight ~ fheight, father.son)
 summary(fit)
 fit$coef
@@ -225,7 +231,7 @@ ggplot(father.son, aes(x=fheight, y=sheight)) +
     geom_smooth(method=lm, se=F, col='red')
 # qplot
 qplot(fheight, sheight, data=father.son)
-qplot(fheight, sheight, data=father.son, geom=c('point', 'smooth')) # but that's the loess
+qplot(fheight, sheight, data=father.son, geom=c('point', 'smooth')) # but that's the loess # new version: method gam
 qplot(fheight, sheight, data=father.son, geom=c('point', 'smooth'), method='lm') # error
 # -> doesn't accept 'method' argument, if smooth comes with some other geoms
 qplot(fheight, sheight, data=father.son, geom='smooth', method='lm', se=F, col='red')
@@ -244,10 +250,12 @@ cent <- lapply(father.son, scale, scale=F)
 lm(sheight~fheight-1, cent)$coef # correct
 # explicit
 with(cent, cor(fheight, sheight) * sd(sheight) / sd(fheight))
+with(cent, sum(fheight * sheight) / sum(fheight^2))
 # caret
 # 1
 require(caret)
 fit <- train(sheight~fheight, father.son, method='lm')
+# -> explore caret; check for any CV etc. that might take place here
 fit$finalModel$coef # not centered yet
 # 2
 fit <- train(sheight~fheight, father.son, method='lm',
@@ -255,24 +263,44 @@ fit <- train(sheight~fheight, father.son, method='lm',
 fit$finalModel # not correct, y is not transformed
 lm(father.son$sheight~cent$fheight) # confirmation of this
 # 3
-preProcValues <- preProcess(father.son, method='center')
-preProcValues
-dataTransformed <- predict(preProcValues, father.son)
+preProcModel <- preProcess(father.son, method='center')
+preProcModel
+dataTransformed <- predict(preProcModel, father.son)
 fit <- train(sheight~fheight-1, dataTransformed, method='lm')
 fit$finalModel # not correct, intercept is not removed
 lm(sheight~fheight, cent) # confirmation of this
 # 4
-# how to remove the intercept???
-
+preProcModel <- preProcess(father.son, method='center')
+preProcModel
+dataTransformed <- predict(preProcModel, father.son)
+fit <- train(sheight~fheight, dataTransformed,
+             method='lm', tuneGrid  = expand.grid(intercept = FALSE))
+fit$finalModel # correct!
+lm(sheight~fheight-1, cent) # confirmation of this
 # old
 df <- with(father.son, # centering the variables
            data.frame(cfh=fheight-mean(fheight),
                       csh=sheight-mean(sheight)))
 lm(csh~cfh-1, df)$coef
 
-# 3 :
+# 3: normalize
+require(UsingR); data("father.son"); ?father.son
+# R functions
+normalizedData <- scale(father.son)
+# checking
+apply(normalizedData, 2, function(x) c(mean(x), sd(x)))
+c(with(father.son, cor(sheight, fheight)), # correlation
+  lm(sheight~fheight-1, as.data.frame(normalizedData))$coef) # slope coefficient
+# caret
+require(caret)
+preProcModel <- preProcess(father.son) # default: method=c('center','scale')
+preProcModel
+dataTransformed <- predict(preProcModel, father.son)
+fit <- train(sheight~fheight, dataTransformed,
+             method='lm', tuneGrid  = expand.grid(intercept = FALSE))
+fit$finalModel # correct
 
-
+# 4:
 
 
 
@@ -293,7 +321,7 @@ lm(csh~cfh-1, df)$coef
 # - for regression we want the area stricly (vertically) above and below the regression line
 # - if the regession line was the identity (symmetry) line then see from the segments
 #   that the area above (for x>0, cor>0) will contain much less data than the area below (except for cor=1)
-# - so the regression line has to shifte down, towards the mean
+# - so the regression line has to shifte down, towards the mean -> rotate towards x-axis
 # - look, the same process applies when regressing x on y
 # - it shows that these two things are different:
 #   - give a concise description (as a line) of a set of paris of noisy data
@@ -316,14 +344,14 @@ g = g + geom_abline(intercept = 0, slope = 1 / rho, size = 2)
 g = g + xlab("Father's height, normalized")
 g = g + ylab("Son's height, normalized")
 g
-fit <- lm(y~x)
-g = g + geom_abline(intercept=fit$coef[1],slope=fit$coef[2], col='green')
+fit <- lm(y~x-1)
+g = g + geom_abline(intercept=0,slope=fit$coef[1], col='green')
 g
-fit <- lm(x~y)
-g = g + geom_abline(intercept=fit$coef[1],slope=1/fit$coef[2], col='yellow')
+fit <- lm(x~y-1)
+g = g + geom_abline(intercept=0,slope=1/fit$coef[1], col='yellow')
 g
 fit
-fit$coef[2]
+fit$coef[1]
 rho
 
 # 1 : two noisy weights
@@ -352,18 +380,16 @@ g = ggplot(data.frame(cx,cy), aes(x=cx, y=cy)) +
 g
 g + geom_smooth() +
     geom_smooth(method=lm, col='green')
-# 2 :
+
+# 2:
+x1 <- 2 # weight on scale 1 after standardizing (i.e. 2 std.dev above the mean)
 ro <- .75
-
-#
-
-
-
-
+x2 <- x1*ro; x2 # so weight on scale 2 is 1.5 std.dev above the mean
+# -> additional explanation:
 # if x1, x2 are both normalized, then the regression of x.i on x.j yields beta0=0 and beta1=ro
 # so you have to multiply by ro.
-xi <- 2
-xi * ro # 1.5
+
+# 3: wives and husbands
 
 # <---------------------------------------------------------------------------------------
 
@@ -389,8 +415,8 @@ g = g + geom_point(size = 5, colour = "blue", alpha=0.2)
 g = g + geom_smooth(method = "lm", colour = "black")
 g
 fit <- lm(price~carat, data=diamond)
-coef(fit)
-fit$coef
+coef(fit); fit$coef
+summary(diamond)
 # centralized to get beta.0 more interpretable
 mean(diamond$carat)
 fit2 <- lm(price~I(carat-mean(carat)), data=diamond)
@@ -403,20 +429,20 @@ newx <- c(0.16, 0.27, 0.34)
 coef(fit)[1] + coef(fit)[2]*newx
 predict(fit, data.frame(carat = newx))
 
-# 1 : father.son
+# 1: father.son
 # Give a p-value for the slope coefficient and perform the relevant hypothesis test
 library(UsingR); data("father.son")
 str(father.son)
 fit <- lm(sheight~fheight, data=father.son); fit
 
 # using lm output
-tmp <- summary(fit)$coef
+tmp <- summary(fit)$coef; tmp
 # p-value for the slope
 tmp[2,4] # p-value
 # testing H: slope<>0
-TS <- tmp[2,1]/tmp[2,2]; TS # test statistic
+TS <- (tmp[2,1] - 0)/tmp[2,2]; TS # test statistic
 n <- nrow(father.son); df <- n-2; a <- .05
-RR <- c(-1,1)*qt(1-a/2,df); RR # rejection region
+RR <- 0 + c(-1,1)*qt(1-a/2,df); RR # rejection region
 abs(TS) > RR[2] # H0 rejected
 # comparison: 95% confidence interval for the slope
 tmp[2,1] + c(-1,1)*qt(1-a/2,df)*tmp[2,2] # does not contain 0
@@ -428,13 +454,14 @@ yhat <- beta0 + beta1*x
 rss <- sum((y - yhat)^2); sig.sq <- rss / (n - p); ssx <- sum((x - mean(x))^2)
 sig.sq.beta1 <- sig.sq / ssx
 t.stat.beta1 <- (beta1 - 0)/sqrt(sig.sq.beta1) # ok
-p.val.beta1 <- 2*pt(t.stat, df=n-p, lower.tail = F) # two sided
+p.val.beta1 <- 2*pt(t.stat.beta1, df=n-p, lower.tail = F) # two sided
+p.val.beta1
 
 # comparison of the values obtained from lm and found manually
 # sigma
 c(summary(fit)$sigma, sqrt(sig.sq))
 # coefficient table for the slope
-matrix(c(tmp[2,1:4],
+matrix(c(tmp[2,],
          beta1, sqrt(sig.sq.beta1), t.stat.beta1, p.val.beta1),
        nrow=2, byrow=T,
        dimnames=list(c('lm','manual'), colnames(tmp)))
@@ -474,7 +501,8 @@ pBeta1 <- 2*pt(abs(tBeta1), df=n-2, lower.tail = F)
 beta0 + c(-1,1)*qt(.975, df=n-2) * seBeta0
 beta1 + c(-1,1)*qt(.975, df=n-2) * seBeta1
 
-# 2 :
+# 2: cont.
+# Interpret both parameters. Recenter for the intercept if necessary.
 
 #
 
@@ -499,11 +527,10 @@ beta1 + c(-1,1)*qt(.975, df=n-2) * seBeta1
 # (this only works if the relationship is linear)
 # - estimates for the errors
 # Differentiate:
-# residual variation (variation after removing the predictor)
-# systematic variation (variation explained by the regression model
+# - residual variation (variation after removing the predictor)
+# - systematic variation (variation explained by the regression model
 # Example:
-library(UsingR)
-data(diamond)
+library(UsingR); data(diamond)
 # Plotting
 # simple:
 ggplot(diamond, aes(x=carat, y=price)) + geom_point() + geom_smooth(method='lm')
@@ -521,13 +548,14 @@ ggplot(diamond, aes(x=carat, y=price)) + geom_count(alpha=0.3) + scale_size_area
 y <- diamond$price; x <- diamond$carat; n <- length(y)
 fit <- lm(y ~ x)
 # The easiest way to get the residuals:
-e <- resid(fit)
+e <- resid(fit) # == fit$resid
 # Obtain the residuals manually, get the predicted Ys first
-yhat <- predict(fit)
+yhat <- predict(fit) # == fit$fitted
 e2 <- y - yhat
 # comparison:
 max(abs(e - e2))
 max(abs(e - (y - coef(fit)[1] - coef(fit)[2] * x))) # same, hard coding the calculation of Yhat
+
 # Plots of the residuals & regression line
 plot(diamond$carat, diamond$price,  
      xlab = "Mass (carats)", 
@@ -539,6 +567,7 @@ for (i in 1 : n)
     lines(c(x[i], x[i]), c(y[i], yhat[i]), col = "red" , lwd = 2)  # adding the lines for residuals
 # -> not useful for ascertaing the residual variation
 #    better plot (mass -> residuals)
+
 # Residuals * x
 plot(x, e,
      xlab = "Mass (carats)", 
@@ -553,7 +582,8 @@ for (i in 1 : n)
 #    see here many y values for the same x's
 
 # RESIDUALS REVEAL NONLINEARITY
-x = runif(100, -3, 3); y = x + sin(x) + rnorm(100, sd = .2);
+n <- 100
+x = runif(n, -3, 3); y = x + sin(x) + rnorm(n, sd = .2);
 # -> so it's linear (y=x) plus sin(x) over runif[-3,3] with noise (rnorm) added
 library(ggplot2)
 g = ggplot(data.frame(x = x, y = y), aes(x = x, y = y))
@@ -567,7 +597,7 @@ g
 # and explains a lot of variation -> very useful model.
 g = ggplot(data.frame(x = x, y = resid(lm(y ~ x))), 
            aes(x = x, y = y))
-g = g + geom_hline(yintercept = 0, size = 2); 
+g = g + geom_hline(yintercept = 0, size = 2)
 g = g + geom_point(size = 7, colour = "black", alpha = 0.4)
 g = g + geom_point(size = 5, colour = "red", alpha = 0.4)
 g = g + xlab("X") + ylab("Residual")
@@ -577,13 +607,15 @@ g
 # RESIDUALS REVEAL HETEROSKEDASTICITY
 # E.g.: by all appearances the plot is perfectly on a line
 # but when you check residuals it's quite different
-x <- runif(100, 0, 6); y <- x + rnorm(100,  mean = 0, sd = .001 * x); 
-#   so it's identity line with added variation that increases linearly with values of x
+n <- 100
+x <- runif(n, 0, 6); y <- x + rnorm(n,  mean = 0, sd = .001 * x)
+# -> so it's identity line with added variation that increases linearly with values of x
 g = ggplot(data.frame(x = x, y = y), aes(x = x, y = y))
 g = g + geom_smooth(method = "lm", colour = "black")
 g = g + geom_point(size = 7, colour = "black", alpha = 0.4)
 g = g + geom_point(size = 5, colour = "red", alpha = 0.4)
 g
+# -> heteroscedasticity is not visible
 g = ggplot(data.frame(x = x, y = resid(lm(y ~ x))), 
            aes(x = x, y = y))
 g = g + geom_hline(yintercept = 0, size = 2); 
@@ -626,24 +658,42 @@ g
 # Ascombe's residual
 data(anscombe);example(anscombe)
 
-# 1
-library(UsingR)
-str(father.son)
-fit <- lm(sheight~fheight, data=father.son)
-# regression line
-plot(father.son)
-abline(fit, col='red')
-require(ggplot2)
-ggplot(father.son, aes(x=fheight, y=sheight)) + geom_point() +
-    geom_smooth(method=lm, col='red')
-ggplot(father.son, aes(x=fheight, y=sheight)) + geom_point() +
-    geom_abline(intercept=coef(fit)[1], slope=coef(fit)[2], col='red')
-# residuals x sheight
-plot(father.son$sheight, fit$residuals)
-qplot(father.son$sheight, fit$residuals)
-ggplot(data.frame(x=father.son$sheight, y=fit$residuals), aes(x=x, y=y)) +
+# 1 : father.son
+library(UsingR); data(father.son)
+fit <- lm(sheight ~ fheight, father.son)
+
+# ploting data and the regression line
+# basic
+plot(father.son); abline(fit, col='red')
+# ggplot
+ggplot(father.son, aes(x=fheight, y=sheight)) +
+    geom_point() +
+    geom_smooth(method='lm', col='red')
+
+# plotting the diagnostics
+par(mfrow=c(2,2))
+plot(fit)
+par(mfrow=c(1,1))
+
+# plotting reponse vs residuals (expected pattern)
+# basic
+plot(father.son$sheight, fit$resid); abline(h=0, col='red')
+# ggplot
+ggplot(data.frame(sheight=father.son$sheight, resid=fit$residuals),
+       aes(x=sheight, y=resid)) +
+    geom_hline(yintercept = 0, col='red') +
     geom_point()
-# 2
+
+# plotting predictor vs residuals (no pattern expected if assumptions hold)
+# basic
+plot(father.son$fheight, fit$resid); abline(h=0, col='red')
+# ggplot
+ggplot(data.frame(fheight=father.son$fheight, resid=fit$residuals),
+       aes(x=fheight, y=resid)) +
+    geom_hline(yintercept = 0, col='red') +
+    geom_point()
+
+# 2 :
 
 
 

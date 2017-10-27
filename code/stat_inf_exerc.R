@@ -178,12 +178,27 @@ pnorm(q, mn, sd) # 0.24
 pnorm(93, mean=100, sd=10) # 0.24
 (93-100)/10 # so between -1sd and 0 = between (1-0.68)/2 = 0.16 and 0.50
 
-# 5
-1.645*10+100 # 116.45
+# 5, top 5%
+100 + 1.645*10
+100 + qnorm(0.95)*10
 qnorm(0.95, 100, 10)
 
 # 6
+# N(100, 10), sample n=50, get top 5% of sample averages
+100 + 1.645*10/sqrt(50)
+100 + qnorm(0.95)*10/sqrt(50)
+qnorm(0.95, 100, 10/sqrt(50))
 
+# 7
+# Binomial distribution, p=.5, find pbbt of (5-6) wins out of 6 trials
+q <- 5; size <- 6; prob <- .5
+pbinom(q-1, size, prob, lower.tail=F) # 0.109
+choose(6,6)*.5^6 + choose(6,5)*.5^6 # 0.109
+# old
+n <- 6; k <- 5; p=.5
+pbinom(k-1, n, p, lower.tail = F) # 10.9%
+
+# 8
 
 #
 
@@ -196,16 +211,6 @@ qnorm(0.95, 100, 10)
 
 
 
-mn = 100; sd = 10; n = 50
-mn.sample = mn
-sd.sample = sd/sqrt(n)
-mn.sample+1.645*sd.sample # approx.
-mn.sample+qnorm(.95)*sd.sample # exact
-qnorm(.05, mn.sample, sd.sample, lower.tail=F) # R function
-# 7
-n <- 6; k <- 5; p=.5
-pbinom(k-1, n, p, lower.tail = F) # 10.9%
-# 8
 m <- 16.5 # mean per day, Poisson
 ppois(20, 2*16.5) # lower tail
 # -> 1%
@@ -220,6 +225,8 @@ ppois(20, 2*16.5) # lower tail
 ################################################################################
 # Ch.7 Asymptopia
 ################################################################################
+
+# Finding a normal quantile
 
 # Simulation of confidence intervals
 # Wald interval coverage
@@ -323,14 +330,17 @@ mean(x) # close to 0
 p <- .5 # fair coin
 n <- 100 # sample size
 k <- 45 # or less successes
-# CLT
-phat <- k/n
-var <- phat*(1-phat) # variance estimate
-stat <- (phat - p) / sqrt(var/n)
-pnorm(stat) # 0.157
-pnorm(phat, p, sqrt(var/n)) # 0.157
-phat + c(-1, 1)*qnorm(0.975)*sqrt(var)
-# exact
+# CLT - manual
+(0.45-0.5)/(0.5/sqrt(100)) # = -1 -> P = (50-34)% = 16%
+# CLT - calculated
+q <- k/n # quantile to check
+sd <- sqrt(p*(1-p)) # std.dev
+stat <- (q - p) / (sd/sqrt(n)) # statistic = -1
+pnorm(stat) # probability = 0.159
+# CLT - using R functions
+pnorm(q, p, sd/sqrt(n)) # 0.159
+p + c(-1, 1)*qnorm(0.975)*sqrt(var)
+# exact - using pbinom
 pbinom(k, n, p) # 0.184
 
 # 3: get a CI interval by CLT
@@ -419,6 +429,7 @@ qplot(x, y, data=dd, geom='line') +
 # Note: t-statistic has N(0,1) distribution if we substitute the true sigma.
 # It has t distribution if we use s as an estimate for sigma.
 require(manipulate)
+require(ggplot2)
 # t vs. normal distribution
 k <- 1000
 xvals <- seq(-5, 5, length = k)
@@ -481,9 +492,8 @@ wideCW <- mutate(wideCW,
                  gain = time21 - time0
 )
 # Plotting weight gain by diet
-g <- ggplot(wideCW, aes(x=factor(Diet), y=gain, fill=factor(Diet))) + # note: col is only contour colour
-    geom_violin()
-g
+g <- ggplot(wideCW, aes(x=factor(Diet), y=gain, fill=factor(Diet))) # note: col is only contour colour
+g + geom_violin()
 g + geom_boxplot()
 # t interval comparing diet 1 and 4 (dropping the other diets)
 wideCW14 <- subset(wideCW, Diet %in% c(1, 4))
@@ -492,7 +502,7 @@ rbind(
     t.test(gain ~ Diet, paired = FALSE, var.equal = TRUE, data = wideCW14)$conf,
     t.test(gain ~ Diet, paired = FALSE, var.equal = FALSE, data = wideCW14)$conf
 )
-# -> unequal variance gives a bit wider interval
+# -> equal variance gives a bit wider interval, interesting
 
 # checking
 head(ChickWeight)
@@ -510,7 +520,7 @@ ChickWeight %>%
     group_by(Diet) %>%
     #select(Diet, gain) %>%
     na.omit() -> tmp
-t.test(gain ~ Diet, data=tmp)$conf
+t.test(gain ~ Diet, data=tmp)$conf # equal.var=FALSE by default
 
 
 
@@ -526,21 +536,26 @@ t.test(gain ~ Diet, data=tmp)$conf
 # 3
 # equal var. assumption (for indep. groups) means the population variance is same for both groups
 # 4: mtcars
-
-
-
-
-
-
-
-#
 data(mtcars)
 ?mtcars
-str(mtcars)
-summary(mtcars)
-mean(mtcars$mpg) + c(-1,1)*qt(.975, nrow(mtcars)-1)*sd(mtcars$mpg)/sqrt(nrow(mtcars))
-t.test(mtcars$mpg)$conf.int
-# 5
+colSums(is.na(mtcars)) # no missing values
+# manual
+mn <- mean(mtcars$mpg); n <- nrow(mtcars); sd <- sd(mtcars$mpg)
+mn + c(-1,1)*qt(.975, n-1)*sd/sqrt(n)
+# concise
+t.test(mtcars$mpg)$conf
+
+# 5:
+# Suppose that standard deviation of 9 paired differences is $1$. What value would the average difference have to be so that the lower endpoint of a 95% students t confidence interval touches zero?
+
+#
+
+
+
+
+
+
+
 mn <- 0; n <- 9; sd=1
 mn + c(-1,1)*qt(0.975, df=n-1)*sd/sqrt(n) # if the average difference was 0
 qt(0.975, df=n-1)*sd/sqrt(n) # 0.768668
@@ -588,6 +603,8 @@ t.test(father.son$sheight - father.son$fheight) # test and 95% CI
 y <- father.son$sheight; x <- father.son$fheight; n <- nrow(father.son)
 df <- n-1; diff <- y - x; mn <- mean(diff); s <- sd(diff); a <- .05
 mn + c(-1,1)*qt(1-a/2, df)*s/sqrt(n) # 95% CI
+# -> it means on average sons are higher than fathers
+
 
 # t test for independent groups
 
@@ -625,18 +642,71 @@ mx <- mean(x); my <- mean(y); a <- .05
 my - mx + c(-1,1)*qt(1-a/2,df)*sqrt(sx^2/nx + sy^2/ny) # 95% CI
 
 # Exact binomial test
+size <- 8; n <- 1; q <- 7 # observed data
+a <- .05 # error type I probability
+TS <- q; TS # test statistic
 
+# one sided test
+p <- .5 # H0: p = .5
+        # H1: p > .5
+RR <- qbinom(1-a, size, p); RR # rejection region
+TS > RR # true => H0 rejected
+# checking pbinom
+pbinom(7, size, p) # q <= 7 (i.e. all excluding 8)
+pbinom(0, size, p, lower.tail=F) # q > 0 (all excluding 0)
+pbinom(8, size, p) # all i.e. 1
+pbinom(-1, size, p, lower.tail=F) # all i.e. 1
+# checking
+pbinom(RR-1, size, p, lower.tail=F) # = P(RR or more) = P(6,7,8) = 14% alpha (too big)
+pbinom(RR, size, p, lower.tail=F) # =P(more than RR) = P(7,8) = 4% alpha, OK
+library(dplyr)
+data.frame(q=0:size) %>%
+    mutate(
+        lower.tail_FALSE=q-1,
+        Rejection_region=paste0('[',q,';',size,']'),
+        Type_I_error_rate=pbinom(q-1, size, p, lower.tail = F)) %>%
+    dplyr::select(-q) # dplyr was necessary to ensure the proper function is selected
+# -> q-1 is necessary, as we want to display pbbt for X >= q, while R returns pbbt of X > q
 
+# two sided test (my version)
+p <- .5 # H0: p = .5
+        # H1: p <> .5
+tmp <- qbinom(1-a/2, size, p); RR <- c(size-tmp, tmp); RR # rejection region
+TS < RR[1] | TS > RR[2] # false => fail to reject H0
+# checking
+pbinom(RR[1], size, p, lower.tail=T) + pbinom(RR[2]-1, size, p, lower.tail=F) # 7% alpha (too big)
+# -> P(q<=1 v q>6) = P([0,1,7,8]) = 7%
+pbinom(RR[1]-1, size, p, lower.tail=T) + pbinom(RR[2], size, p, lower.tail=F) # 0.8% alpha, ok
+# -> P(q<=0 v q>7) = P([0,8]) = 0.8%
 
+# Exercises
 
-
-
-
-# 1
+# 1 :
 # Null is assumed to be true.
-# 2
+
+# 2 :
 # type 1 error - probability of rejecting true null hypothesis (assuming the model is correct)
-# 3
+
+# 3 : mtcars
+data(mtcars); ?mtcars
+# t-test: one sided 5% level test H1: mu < mu0
+a <- 0.05; n <- nrow(mtcars)
+mn <- mean(mtcars$mpg); sd <- sd(mtcars$mpg)/sqrt(n)
+mu0 <- 22 # just an example value
+TS <- (mn-mu0)/sd; TS
+RR <- qt(a, n-1); RR
+TS < RR # TRUE -> reject the null hypothesis
+# Z-test: one sided 5% level test H1: mu < mu0
+# what is the smallest value of \mu_0 that you would reject for
+mn <- mean(mtcars$mpg); sd <- sd(mtcars$mpg)/sqrt(n)
+a <- 0.05; n <- nrow(mtcars)
+# -> the lowest value of mu0 is such that:
+# mu0 + qnorm(a)*sd/sqrt(n) = avg(mpg)
+# -> so mu0 equals:
+mu0 <- mn - qnorm(a)*sd; mu0
+# checking
+mu0 + qnorm(a)*sd == mn # ok
+# Official:
 data(mtcars)
 mn <- mean(mtcars$mpg)
 # H0:mu=mu0, Ha:mu<mu0, alpha=5%, CLT
@@ -651,7 +721,18 @@ s <- sd(mtcars$mpg)
 # s/sqrt(n)
 # solve for minimal mu0:
 mn - z*s/sqrt(n) # 21.84
-# 4
+
+# 4:
+# Use a two group t-test to test the hypothesis that the 4 and 6 cyl cars have the same mpg. Use a two sided test with unequal variances
+data(mtcars)
+#
+
+
+
+
+
+
+
 ?mtcars
 t.test(mtcars$mpg[mtcars$cyl==4], mtcars$mpg[mtcars$cyl==6]) # default: two-sided, not paired, unequal variance
 # null rejected at <<1%
@@ -676,6 +757,19 @@ mn + c(-1,1)*qt(.975, df=n-1)*sd/sqrt(n)
 ################################################################################
 # Ch.10 P-values
 ################################################################################
+
+# Suppose that you get a t statistic of 2.5 for 15 degrees of freedom testing H_0:\mu = \mu_0 versus H_a : \mu > \mu_0. What’s the probability of getting a t statistic as large as 2.5?
+pt(2.5, 15, lower.tail = F)
+# -> So, (assuming our model is correct) either we observed data that was pretty unlikely under the null, or the null hypothesis if false.
+# The smallest value for alpha that you still reject the null hypothesis is called the attained significance level.
+
+# Suppose a friend has 8 children, 7 of which are girls and none are twins. If each gender has an independent 50% probability for each birth, what’s the probability of getting 7 or more girls out of 8 births?
+n <- 8; g <- 7; p <- .5 # find pbbt of g in (7,8)
+pbinom(g-1, n, p, lower.tail = F) # g-1 as P(x<=q|lower.tail=T) or P(x>q|lower.tail=F)
+
+# Suppose that a hospital has an infection rate of 10 infections per 100 person/days at risk (rate of 0.1) during the last monitoring period. Assume that an infection rate of 0.05 is an important benchmark. Given a Poisson model, could the observed rate being larger than 0.05 be attributed to chance?
+t <- 100; x <- 10; r <- 0.05 # find pbbt of x>=10
+ppois(x-1, t*r, lower.tail = F) # x-1 as P(x>q|lower.tail=F)
 
 # 1
 # p-vals are calc. assuming H0 is true
