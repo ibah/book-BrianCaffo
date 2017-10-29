@@ -226,7 +226,68 @@ ppois(20, 2*16.5) # lower tail
 # Ch.7 Asymptopia
 ################################################################################
 
-# Finding a normal quantile
+## Law of large numbers
+
+# Means of samples of std. normals, of increasing sizes
+n <- 10000
+means <- cumsum(rnorm(n)) / (1:n)
+require(ggplot2)
+ggplot(data.frame(x=1:n, y=means), aes(x=x, y=y)) +
+    geom_line() + geom_hline(yintercept = 0) + labs(x='Number of obs.', y = 'Cumulative mean')
+
+# Means of increasing/growing samples of coin tosses
+means <- cumsum(sample(0:1, n, replace=T)) /1:n
+ggplot(data.frame(x=1:n, y=means), aes(x=x, y=y)) +
+    geom_line() + geom_hline(yintercept = 0.5) + labs(x='Number of obs.', y = 'Cumulative mean')
+
+## Central limit theorem
+
+# Die roll simulation
+# ver.1 (just for n=10)
+n <- 10; nosim <- 1000
+mu <- sum(1:6)/6; sd <- sqrt(sum((1:6)^2)/6 - mu^2)
+means <- sample(1:6, n*nosim, replace = T)
+require(dplyr)
+means %>%
+    matrix(nrow=nosim, ncol=n) %>%
+    apply(1, mean) %>%
+    `-`(mu) %>% `/`(sd/sqrt(n)) ->
+    std_means
+ggplot(data.frame(x=std_means), aes(x=x)) + geom_density() + stat_function(fun=dnorm)
+
+# ver.2 (n=10,20,30)
+size <- c(10, 20, 30)
+sim <- lapply(size, function(n) sample(1:6, nosim*n, replace=T))
+sim_mat <- lapply(sim, matrix, nosim)
+means_mat <- sapply(sim_mat, function(mat) apply(mat, 1, mean))
+means_flat <- c(means_mat) # as.vector(means_mat) # per column
+sizes <- rep(sizes, rep(nosim, 3))
+std_means_flat <- sqrt(sizes) * (means_flat - 3.5) / 1.71
+ggplot(data.frame(x=std_means_flat, size=factor(sizes)),
+       aes(x=x, fill=size)) +
+    geom_histogram(alpha = .20, binwidth=.3, colour = "black", aes(y = ..density..)) +
+    stat_function(fun=dnorm, size=2) +
+    facet_grid(. ~ size)
+    
+
+# ver.official (elegant: cfunc, effective data transformation with cfunc, nice plot)
+nosim <- 1000
+cfunc <- function(x, n) sqrt(n) * (mean(x) - 3.5) / 1.71
+dat <- data.frame(
+    x = c(apply(matrix(sample(1 : 6, nosim * 10, replace = TRUE), 
+                       nosim), 1, cfunc, 10),
+          apply(matrix(sample(1 : 6, nosim * 20, replace = TRUE), 
+                       nosim), 1, cfunc, 20),
+          apply(matrix(sample(1 : 6, nosim * 30, replace = TRUE), 
+                       nosim), 1, cfunc, 30)
+    ),
+    size = factor(rep(c(10, 20, 30), rep(nosim, 3))))
+g <- ggplot(dat, aes(x = x, fill = size)) + geom_histogram(alpha = .20, binwidth=.3, colour = "black", aes(y = ..density..)) 
+g <- g + stat_function(fun = dnorm, size = 2)
+g + facet_grid(. ~ size)
+
+
+
 
 # Simulation of confidence intervals
 # Wald interval coverage
