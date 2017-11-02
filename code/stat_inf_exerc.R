@@ -325,11 +325,28 @@ g <- g + stat_function(fun = dnorm, size = 2)
 g + facet_grid(. ~ size)
 
 # p=0.9
+nosim <- 1000
+p <- .9; mu <- p; sd <- sqrt(p * (1 - p))
+cfunc <- function(x, n) sqrt(n) * (mean(x) - mu) / sd
+dat <- data.frame(
+    x = c(apply(matrix(sample(0:1, nosim*10, replace=T, prob=c(1-p, p)), nosim), 1, cfunc, 10),
+          apply(matrix(sample(0:1, nosim*20, replace=T, prob=c(1-p, p)), nosim), 1, cfunc, 20),
+          apply(matrix(sample(0:1, nosim*30, replace=T, prob=c(1-p, p)), nosim), 1, cfunc, 30)),
+    size = factor(rep(c(10,20,30), rep(nosim, 3))))
+require(ggplot2)
+ggplot(dat, aes(x = x, fill = size)) +
+    geom_histogram(aes(y = ..density..)) + # necessary to display the histogram in terms of density, not counts
+    stat_function(fun = dnorm) + # this shows density of std Normal, so will fit the density scale
+    facet_grid(. ~ size)
+# -> Refactoring:
+# only local in this file, need to pass into the function:
+# - nosim
+# - sample sizes
+# - sampling funciton
+# - parameters for the sampling function
 
 
-
-
-
+# Confidence intervals
 
 # Simulation of confidence intervals
 # Wald interval coverage
